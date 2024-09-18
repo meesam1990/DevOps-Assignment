@@ -1,0 +1,31 @@
+- hosts: localhost
+  tasks:
+
+    - name: Create monitoring namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: monitoring
+
+    - name: Create ethereum namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ethereum
+
+    - name: Deploy Prometheus
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'prometheus.yaml') }}"
+
+    - name: Deploy Grafana
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'grafana.yaml') }}"
+

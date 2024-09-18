@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ethereum-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ethereum-node
+  template:
+    metadata:
+      labels:
+        app: ethereum-node
+    spec:
+      containers:
+      - name: ethereum-node
+        image: ethereum/client-go:v1.13.0
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            geth init /root/.ethereum/genesis.json &&
+            geth --networkid=15 --nodiscover --http --http.addr=0.0.0.0 --http.api=personal,db,eth,net,web3 --syncmode=full
+        ports:
+        - containerPort: 8545
+        - containerPort: 30303
+        volumeMounts:
+        - name: eth-data
+          mountPath: /root/.ethereum
+        - name: genesis-config
+          mountPath: /root/.ethereum/genesis.json
+          subPath: genesis.json
+      volumes:
+      - name: eth-data
+        emptyDir: {}
+      - name: genesis-config
+        configMap:
+          name: ethereum-genesis-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ethereum-node
+spec:
+  selector:
+    app: ethereum-node
+  ports:
+    - port: 8545
+      targetPort: 8545
+  type: NodePort
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress  
+metadata:
+  name: ethereum-node
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: subnet-052e68a69490d891b, subnet-0b47ca1637e4909d9
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ethereum-node
+                port:
+                  number: 8545
